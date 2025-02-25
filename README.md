@@ -1,40 +1,152 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# 📌 Explicación paso a paso del código
 
-## Getting Started
+## 1️⃣ **Importaciones y Definición de Tipos**
+```ts
+import type { NextApiRequest, NextApiResponse } from "next";
+import puppeteer from "puppeteer";
+```
+- `NextApiRequest` y `NextApiResponse`: Tipos de Next.js para manejar solicitudes y respuestas API.
+- `puppeteer`: Librería para automatizar un navegador y hacer web scraping.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 2️⃣ **Definimos el Tipo `Product`**
+```ts
+type Product = {
+  title: string;
+  price: string;
+  image: string;
+  link: string;
+};
+```
+- Cada producto tendrá:
+  - `title`: nombre del producto.
+  - `price`: precio del producto.
+  - `image`: URL de la imagen.
+  - `link`: enlace a la página del producto.
+
+---
+
+## 3️⃣ **Función Principal de la API**
+```ts
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+```
+- `handler` maneja la solicitud HTTP.
+- `req`: Datos de la solicitud (ej. parámetros de búsqueda).
+- `res`: Respuesta que se enviará al usuario.
+
+---
+
+## 4️⃣ **Obtenemos el Parámetro de Búsqueda**
+```ts
+const query = req.query.query as string || "laptop"; 
+const url = `https://www.amazon.com/s?k=${encodeURIComponent(query)}`;
+```
+- `req.query.query`: Extrae el parámetro de búsqueda.
+- `encodeURIComponent(query)`: Asegura que la URL sea válida.
+
+---
+
+## 5️⃣ **Iniciamos Puppeteer**
+```ts
+const browser = await puppeteer.launch({ headless: true });
+const page = await browser.newPage();
+await page.goto(url, { waitUntil: "networkidle2" });
+```
+- Abre un navegador en **modo headless** (sin interfaz).
+- Carga la página de búsqueda en Amazon.
+- Espera hasta que la red esté inactiva (`networkidle2`).
+
+---
+
+## 6️⃣ **Extraemos los Datos con `evaluate`**
+```ts
+const products: Product[] = await page.evaluate(() => {
+  const items = document.querySelectorAll('.s-result-item[role="listitem"]');
+  const data: Product[] = [];
+```
+- `page.evaluate()`: Ejecuta código en la página.
+- `.s-result-item[role="listitem"]`: Selecciona productos relevantes.
+
+---
+
+## 7️⃣ **Recorremos los Productos y Extraemos Información**
+```ts
+items.forEach((item) => {
+  const title = item.querySelector("a h2 span")?.textContent || "No title";
+  const price = item.querySelector(".a-price span")?.textContent || "N/A";
+  const image = item.querySelector("img.s-image")?.getAttribute("src") || "";
+  const link =
+    "https://www.amazon.com" +
+    item.querySelector("h2 a")?.getAttribute("href") ||
+    "";
+
+  data.push({ title, price, image, link });
+});
+```
+### 🔹 **Explicación**
+- **Título:** `querySelector("a h2 span")?.textContent || "No title"`
+- **Precio:** `querySelector(".a-price span")?.textContent || "N/A"`
+- **Imagen:** `querySelector("img.s-image")?.getAttribute("src") || ""`
+- **Enlace:** Concatena `"https://www.amazon.com"` para formar la URL completa.
+
+---
+
+## 8️⃣ **Cerramos el Navegador**
+```ts
+await browser.close();
+```
+- Libera recursos al cerrar Puppeteer.
+
+---
+
+## 9️⃣ **Enviamos la Respuesta JSON**
+```ts
+res.status(200).json({ products });
+```
+- Devuelve los productos extraídos en formato JSON.
+
+---
+
+## 🔥 **Ejemplo de Respuesta JSON**
+```json
+{
+  "products": [
+    {
+      "title": "Apple iPhone 13 (128GB) - Midnight",
+      "price": "$699.99",
+      "image": "https://m.media-amazon.com/images/I/71GLMJ7TQiL._AC_SY741_.jpg",
+      "link": "https://www.amazon.com/dp/B09G9HD6PD"
+    },
+    {
+      "title": "iPhone 13 Pro Max (256GB) - Sierra Blue",
+      "price": "$1,099.99",
+      "image": "https://m.media-amazon.com/images/I/71F9eVX8KHL._AC_SY741_.jpg",
+      "link": "https://www.amazon.com/dp/B09G9FPGTN"
+    }
+  ]
+}
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+## 🎯 **Resumen**
+1. 📩 **Recibe** un parámetro de búsqueda (`/api/scrape?query=producto`).
+2. 🌍 **Crea una URL** para buscar en Amazon.
+3. 🌐 **Usa Puppeteer** para abrir la página.
+4. 🛍️ **Obtiene información** de los productos con `querySelector`.
+5. 🔄 **Devuelve los productos** en formato JSON.
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+---
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+## 🚀 **Posibles Mejoras**
+- **Manejar errores** con `try/catch`.
+- **Cachear resultados** para mejorar rendimiento.
+- **Usar proxies o user-agents** para evitar bloqueos.
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+¡Ahora tienes una API funcional con Next.js y Puppeteer! 🎉 🔥
