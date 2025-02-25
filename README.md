@@ -1,4 +1,4 @@
-# 📌 Explicación paso a paso del código
+# Scraping de productos en tiendas online 🕵🏼‍♀️
 
 ## 1️⃣ **Importaciones y Definición de Tipos**
 ```ts
